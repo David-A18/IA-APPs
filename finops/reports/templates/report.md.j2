@@ -1,0 +1,29 @@
+# FinOps Autopilot Report
+**Generated:** {{ generated_at }}
+**Account:** {{ account_id }}
+**Period:** {{ start_date }} → {{ end_date }}
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total cost | ${{ "%.2f"|format(total_cost) }} |
+| Anomalies detected | {{ anomalies|length }} |
+| Rightsizing recommendations | {{ recommendations|length }} |
+| Estimated monthly savings | ${{ "%.2f"|format(estimated_savings) }} |
+
+## Anomalies
+
+{% for anomaly in anomalies %}
+### {{ anomaly.rule_name }} ({{ anomaly.severity }})
+- **Service:** {{ anomaly.service }}
+- **Date:** {{ anomaly.date }}
+- **Delta:** +{{ "%.1f"|format(anomaly.delta_pct) }}% (${{ "%.2f"|format(anomaly.delta_usd) }})
+
+{% endfor %}
+
+## Rightsizing Recommendations
+
+{% for rec in recommendations %}
+- **{{ rec.resource_id }}** ({{ rec.instance_type }}): {{ rec.action }} → estimated saving ${{ "%.2f"|format(rec.savings_usd) }}/mo
+{% endfor %}

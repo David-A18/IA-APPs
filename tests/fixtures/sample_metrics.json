@@ -1,0 +1,59 @@
+{
+  "ec2_instances": [
+    {
+      "instance_id": "i-0abc123def456",
+      "instance_type": "t3.medium",
+      "region": "us-east-1",
+      "metrics": {
+        "CPUUtilization": {
+          "average": 8.5,
+          "max": 42.1,
+          "period_days": 14
+        },
+        "mem_used_percent": {
+          "average": 22.3,
+          "max": 55.0,
+          "period_days": 14
+        }
+      },
+      "monthly_cost_usd": 72.0
+    },
+    {
+      "instance_id": "i-0ghi789jkl012",
+      "instance_type": "m5.xlarge",
+      "region": "us-west-2",
+      "metrics": {
+        "CPUUtilization": {
+          "average": 75.2,
+          "max": 98.0,
+          "period_days": 14
+        },
+        "mem_used_percent": {
+          "average": 68.5,
+          "max": 85.0,
+          "period_days": 14
+        }
+      },
+      "monthly_cost_usd": 280.0
+    }
+  ],
+  "ebs_volumes": [
+    {
+      "volume_id": "vol-0abc123def456",
+      "volume_type": "gp2",
+      "size_gb": 100,
+      "region": "us-east-1",
+      "metrics": {
+        "VolumeReadOps": {
+          "average": 15.0,
+          "period_days": 14
+        },
+        "VolumeWriteOps": {
+          "average": 25.0,
+          "period_days": 14
+        }
+      },
+      "monthly_cost_usd": 10.0
+    }
+  ]
+}

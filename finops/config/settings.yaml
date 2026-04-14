@@ -1,0 +1,42 @@
+aws:
+  account_id: "123456789012"  # Replace with your AWS account ID
+  region: "us-east-1"
+  cur:
+    s3_bucket: "my-cur-bucket"       # S3 bucket where CUR reports are stored
+    s3_prefix: "cur/reports/"
+    report_name: "finops-cur-report"
+  cost_explorer:
+    enabled: true
+
+anomaly_detection:
+  thresholds:
+    daily_cost_spike_pct: 20          # Alert if daily cost increases > 20%
+    service_cost_spike_pct: 50        # Alert if a service cost increases > 50%
+    absolute_min_delta_usd: 10.0      # Ignore spikes below $10
+  lookback_days: 7                    # Compare against last 7 days average
+
+rightsizing:
+  ec2:
+    cpu_threshold_pct: 20             # Recommend downsize if avg CPU < 20%
+    memory_threshold_pct: 30          # Recommend downsize if avg memory < 30%
+    evaluation_period_days: 14
+  storage:
+    ebs_utilization_threshold_pct: 40 # Recommend tier change if util < 40%
+
+alerts:
+  slack:
+    enabled: false
+    webhook_url: "https://hooks.slack.com/services/PLACEHOLDER"
+    channel: "#finops-alerts"
+  email:
+    enabled: false
+    recipients: []
+  json_output:
+    enabled: true
+    output_path: "output/alerts.json"
+
+reports:
+  output_dir: "output/reports"
+  formats:
+    - json
+    - markdown

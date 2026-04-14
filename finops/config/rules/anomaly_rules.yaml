@@ -1,0 +1,58 @@
+version: "1.0"
+rules:
+  - id: daily_cost_spike
+    name: "Daily cost spike"
+    description: "Total daily cost increases more than threshold vs rolling average"
+    enabled: true
+    type: percentage_change
+    metric: total_daily_cost
+    window_days: 7
+    threshold_pct: 20
+    min_delta_usd: 10.0
+    severity: high
+
+  - id: service_cost_spike
+    name: "Service cost spike"
+    description: "Individual service cost increases more than threshold"
+    enabled: true
+    type: percentage_change
+    metric: service_daily_cost
+    group_by: product_name
+    window_days: 7
+    threshold_pct: 50
+    min_delta_usd: 5.0
+    severity: medium
+
+  - id: new_service_detected
+    name: "New AWS service detected"
+    description: "A service not seen in the lookback window appears with charges"
+    enabled: true
+    type: new_entity
+    metric: service_daily_cost
+    group_by: product_name
+    window_days: 14
+    min_delta_usd: 1.0
+    severity: low
+
+  - id: weekend_cost_spike
+    name: "Unexpected weekend cost"
+    description: "Weekend costs exceed weekday average (possible runaway jobs)"
+    enabled: true
+    type: time_pattern
+    metric: total_daily_cost
+    expected_days: [0, 1, 2, 3, 4]  # Mon-Fri
+    threshold_pct: 30
+    min_delta_usd: 20.0
+    severity: medium
+
+  - id: region_cost_spike
+    name: "Region cost spike"
+    description: "Cost in a specific region increases sharply"
+    enabled: true
+    type: percentage_change
+    metric: region_daily_cost
+    group_by: region
+    window_days: 7
+    threshold_pct: 40
+    min_delta_usd: 5.0
+    severity: medium

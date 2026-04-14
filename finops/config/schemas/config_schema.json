@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FinOps Autopilot Configuration",
+  "type": "object",
+  "required": ["aws", "anomaly_detection", "rightsizing", "alerts", "reports"],
+  "additionalProperties": false,
+  "properties": {
+    "aws": {
+      "type": "object",
+      "required": ["account_id", "region", "cur"],
+      "additionalProperties": false,
+      "properties": {
+        "account_id": { "type": "string", "pattern": "^[0-9]{12}$" },
+        "region": { "type": "string" },
+        "cur": {
+          "type": "object",
+          "required": ["s3_bucket", "s3_prefix", "report_name"],
+          "additionalProperties": false,
+          "properties": {
+            "s3_bucket": { "type": "string", "minLength": 3 },
+            "s3_prefix": { "type": "string" },
+            "report_name": { "type": "string", "minLength": 1 }
+          }
+        },
+        "cost_explorer": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "anomaly_detection": {
+      "type": "object",
+      "required": ["thresholds", "lookback_days"],
+      "additionalProperties": false,
+      "properties": {
+        "thresholds": {
+          "type": "object",
+          "required": ["daily_cost_spike_pct", "service_cost_spike_pct", "absolute_min_delta_usd"],
+          "additionalProperties": false,
+          "properties": {
+            "daily_cost_spike_pct": { "type": "number", "minimum": 0 },
+            "service_cost_spike_pct": { "type": "number", "minimum": 0 },
+            "absolute_min_delta_usd": { "type": "number", "minimum": 0 }
+          }
+        },
+        "lookback_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "rightsizing": {
+      "type": "object",
+      "required": ["ec2", "storage"],
+      "additionalProperties": false,
+      "properties": {
+        "ec2": {
+          "type": "object",
+          "required": ["cpu_threshold_pct", "memory_threshold_pct", "evaluation_period_days"],
+          "additionalProperties": false,
+          "properties": {
+            "cpu_threshold_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "memory_threshold_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "evaluation_period_days": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "required": ["ebs_utilization_threshold_pct"],
+          "additionalProperties": false,
+          "properties": {
+            "ebs_utilization_threshold_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "alerts": {
+      "type": "object",
+      "required": ["slack", "email", "json_output"],
+      "additionalProperties": false,
+      "properties": {
+        "slack": {
+          "type": "object",
+          "required": ["enabled", "webhook_url", "channel"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "webhook_url": { "type": "string" },
+            "channel": { "type": "string" }
+          }
+        },
+        "email": {
+          "type": "object",
+          "required": ["enabled", "recipients"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "recipients": { "type": "array", "items": { "type": "string", "format": "email" } }
+          }
+        },
+        "json_output": {
+          "type": "object",
+          "required": ["enabled", "output_path"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "output_path": { "type": "string" }
+          }
+        }
+      }
+    },
+    "reports": {
+      "type": "object",
+      "required": ["output_dir", "formats"],
+      "additionalProperties": false,
+      "properties": {
+        "output_dir": { "type": "string" },
+        "formats": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["json", "markdown"] }
+        }
+      }
+    }
+  }
+}

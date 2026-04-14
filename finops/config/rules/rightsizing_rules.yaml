@@ -1,0 +1,74 @@
+version: "1.0"
+rules:
+  ec2:
+    - id: ec2_low_cpu
+      name: "EC2 low CPU utilization"
+      description: "Instance average CPU below threshold — candidate for downsizing"
+      enabled: true
+      metric: CPUUtilization
+      threshold_pct: 20
+      evaluation_period_days: 14
+      statistic: Average
+      action: recommend_downsize
+      savings_estimate_pct: 30
+
+    - id: ec2_low_memory
+      name: "EC2 low memory utilization"
+      description: "Instance average memory below threshold (requires CloudWatch agent)"
+      enabled: true
+      metric: mem_used_percent
+      threshold_pct: 30
+      evaluation_period_days: 14
+      statistic: Average
+      action: recommend_downsize
+      savings_estimate_pct: 25
+
+    - id: ec2_idle_instance
+      name: "EC2 idle instance"
+      description: "Instance with CPU < 5% for 95% of evaluation period"
+      enabled: true
+      metric: CPUUtilization
+      threshold_pct: 5
+      percentile: 95
+      evaluation_period_days: 14
+      action: recommend_stop_or_terminate
+      savings_estimate_pct: 100
+
+  storage:
+    - id: ebs_low_utilization
+      name: "EBS low utilization"
+      description: "EBS volume with low read/write — consider gp2→gp3 or deletion"
+      enabled: true
+      metric: VolumeReadOps
+      threshold_pct: 40
+      evaluation_period_days: 14
+      action: recommend_gp3_or_delete
+      savings_estimate_pct: 20
+
+    - id: s3_missing_lifecycle
+      name: "S3 bucket missing lifecycle policy"
+      description: "S3 bucket with growing storage and no lifecycle rules"
+      enabled: true
+      action: recommend_lifecycle_policy
+      savings_estimate_pct: 15
+
+  kubernetes:
+    - id: k8s_cpu_overprovisioned
+      name: "K8s CPU request overprovisioned"
+      description: "Pod CPU request >> actual usage"
+      enabled: true
+      metric: container_cpu_usage_seconds_total
+      request_to_usage_ratio: 3.0  # Request is 3x actual usage
+      evaluation_period_days: 7
+      action: recommend_reduce_request
+      savings_estimate_pct: 40
+
+    - id: k8s_memory_overprovisioned
+      name: "K8s memory request overprovisioned"
+      description: "Pod memory request >> actual usage"
+      enabled: true
+      metric: container_memory_working_set_bytes
+      request_to_usage_ratio: 2.5
+      evaluation_period_days: 7
+      action: recommend_reduce_request
+      savings_estimate_pct: 35
