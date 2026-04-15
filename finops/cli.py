@@ -16,10 +16,24 @@ app = typer.Typer(
     name="finops",
     help="FinOps Autopilot — AWS cost anomaly detection and rightsizing.",
     no_args_is_help=True,
+    invoke_without_command=True,
 )
 console = Console()
 
 log = logging.getLogger("finops.cli")
+
+
+@app.callback()
+def _app_init(
+    ctx: typer.Context,
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level: DEBUG|INFO|WARNING|ERROR"),
+    json_logs: bool = typer.Option(False, "--json-logs", help="Emit logs as JSON (for log aggregators)"),
+) -> None:
+    """FinOps Autopilot — configure logging on startup."""
+    from finops.utils.logger import configure_logging
+
+    configure_logging(level=log_level.upper(), json_logs=json_logs)
+
 
 _DEFAULT_CONFIG = Path(__file__).parent / "config" / "settings.yaml"
 _DEFAULT_SCHEMA = Path(__file__).parent / "config" / "schemas" / "config_schema.json"
