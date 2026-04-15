@@ -249,5 +249,110 @@ def unit_economics(
     console.print(table)
 
 
+@app.command()
+def rightsizing(
+    metrics_file: Path = typer.Argument(help="JSON file with EC2/K8s/EBS metrics"),
+    output: str = typer.Option("table", "--output", "-o", help="table | json"),
+    db: Path = typer.Option(_DEFAULT_DB, "--db", help="DuckDB file (for savings analysis)"),
+    start_date: str = typer.Option("", "--start", help="Period start for savings analysis"),
+    end_date: str = typer.Option("", "--end", help="Period end for savings analysis"),
+) -> None:
+    """Generate EC2, K8s, storage, and savings plan recommendations from metrics JSON."""
+    from finops.recommendations.ec2_rightsizer import analyze_ec2_instances
+    from finops.recommendations.k8s_rightsizer import analyze_k8s_pods
+    from finops.recommendations.storage_optimizer import analyze_ebs_volumes, analyze_s3_buckets
+    from finops.recommendations.savings_analyzer import analyze_savings_opportunities
+    from finops.ingestion.local_store import LocalStore
+
+    data = json.loads(metrics_file.read_text(encoding="utf-8"))
+
+    ec2_recs = analyze_ec2_instances(data.get("ec2_instances", []))
+    k8s_recs = analyze_k8s_pods(data.get("kubernetes_pods", []))
+    ebs_recs = analyze_ebs_volumes(data.get("ebs_volumes", []))
+    s3_recs = analyze_s3_buckets(data.get("s3_buckets", []))
+
+    savings_recs = []
+    if start_date and end_date:
+        with LocalStore(db) as store:
+            savings_recs = analyze_savings_opportunities(store, start_date, end_date)
+
+    total_savings = (
+        sum(r.estimated_savings_usd for r in ec2_recs)
+        + sum(r.estimated_savings_usd for r in ebs_recs)
+        + sum(r.estimated_savings_usd for r in s3_recs)
+        + sum(r.estimated_monthly_savings_usd for r in savings_recs)
+    )
+
+    if output == "json":
+        console.print(json.dumps({
+            "ec2": [r.as_dict() for r in ec2_recs],
+            "kubernetes": [r.as_dict() for r in k8s_recs],
+            "ebs": [r.as_dict() for r in ebs_recs],
+            "s3": [r.as_dict() for r in s3_recs],
+            "savings_plans": [r.as_dict() for r in savings_recs],
+            "total_estimated_savings_usd": round(total_savings, 2),
+        }, indent=2))
+        return
+
+    console.print(f"\n[bold]Total estimated monthly savings:[/bold] [green]${total_savings:.2f}[/green]\n")
+
+    if ec2_recs:
+        table = Table(title=f"EC2 Rightsizing ({len(ec2_recs)} recommendations)", header_style="bold red")
+        table.add_column("Instance ID")
+        table.add_column("Type")
+        table.add_column("Action")
+        table.add_column("Recommended")
+        table.add_column("Savings/mo", justify="right")
+        table.add_column("Confidence")
+        for r in ec2_recs:
+            table.add_row(
+                r.instance_id, r.instance_type, r.action,
+                r.recommended_type or "stop/terminate",
+                f"${r.estimated_savings_usd:.2f}", r.confidence,
+            )
+        console.print(table)
+
+    if k8s_recs:
+        table = Table(title=f"K8s Rightsizing ({len(k8s_recs)} recommendations)", header_style="bold yellow")
+        table.add_column("Pod")
+        table.add_column("Resource")
+        table.add_column("Current")
+        table.add_column("Recommended")
+        table.add_column("Savings %", justify="right")
+        for r in k8s_recs:
+            table.add_row(
+                f"{r.namespace}/{r.pod_name}", r.resource,
+                r.current_request, r.recommended_request,
+                f"{r.estimated_savings_pct:.1f}%",
+            )
+        console.print(table)
+
+    if ebs_recs or s3_recs:
+        table = Table(title=f"Storage Optimization ({len(ebs_recs)+len(s3_recs)} items)", header_style="bold cyan")
+        table.add_column("Resource ID")
+        table.add_column("Type")
+        table.add_column("Action")
+        table.add_column("Savings/mo", justify="right")
+        for r in [*ebs_recs, *s3_recs]:
+            table.add_row(r.resource_id, r.resource_type, r.action, f"${r.estimated_savings_usd:.2f}")
+        console.print(table)
+
+    if savings_recs:
+        table = Table(title=f"Savings Plans ({len(savings_recs)} opportunities)", header_style="bold green")
+        table.add_column("Service")
+        table.add_column("Term + Payment")
+        table.add_column("Monthly cost")
+        table.add_column("Savings/mo", justify="right")
+        table.add_column("Discount", justify="right")
+        for r in savings_recs:
+            table.add_row(
+                r.service, f"{r.term} {r.payment_option.replace('_', ' ')}",
+                f"${r.avg_daily_cost_usd * 30:.2f}",
+                f"${r.estimated_monthly_savings_usd:.2f}",
+                f"{r.discount_rate_pct * 100:.0f}%",
+            )
+        console.print(table)
+
+
 if __name__ == "__main__":
     app()

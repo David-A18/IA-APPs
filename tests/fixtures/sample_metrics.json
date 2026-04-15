@@ -4,37 +4,31 @@
       "instance_id": "i-0abc123def456",
       "instance_type": "t3.medium",
       "region": "us-east-1",
+      "monthly_cost_usd": 72.0,
       "metrics": {
-        "CPUUtilization": {
-          "average": 8.5,
-          "max": 42.1,
-          "period_days": 14
-        },
-        "mem_used_percent": {
-          "average": 22.3,
-          "max": 55.0,
-          "period_days": 14
-        }
-      },
-      "monthly_cost_usd": 72.0
+        "CPUUtilization": {"average": 8.5, "max": 42.1},
+        "mem_used_percent": {"average": 22.3, "max": 55.0}
+      }
     },
     {
       "instance_id": "i-0ghi789jkl012",
       "instance_type": "m5.xlarge",
       "region": "us-west-2",
+      "monthly_cost_usd": 280.0,
       "metrics": {
-        "CPUUtilization": {
-          "average": 75.2,
-          "max": 98.0,
-          "period_days": 14
-        },
-        "mem_used_percent": {
-          "average": 68.5,
-          "max": 85.0,
-          "period_days": 14
-        }
-      },
-      "monthly_cost_usd": 280.0
+        "CPUUtilization": {"average": 75.2, "max": 98.0},
+        "mem_used_percent": {"average": 68.5, "max": 85.0}
+      }
+    },
+    {
+      "instance_id": "i-idle001",
+      "instance_type": "t3.large",
+      "region": "us-east-1",
+      "monthly_cost_usd": 58.0,
+      "metrics": {
+        "CPUUtilization": {"average": 1.2, "max": 5.0},
+        "mem_used_percent": {"average": 5.0, "max": 8.0}
+      }
     }
   ],
   "ebs_volumes": [
@@ -43,17 +37,69 @@
       "volume_type": "gp2",
       "size_gb": 100,
       "region": "us-east-1",
+      "monthly_cost_usd": 10.0,
       "metrics": {
-        "VolumeReadOps": {
-          "average": 15.0,
-          "period_days": 14
-        },
-        "VolumeWriteOps": {
-          "average": 25.0,
-          "period_days": 14
-        }
-      },
-      "monthly_cost_usd": 10.0
+        "VolumeReadOps": {"average": 1.0},
+        "VolumeWriteOps": {"average": 2.0}
+      }
+    },
+    {
+      "volume_id": "vol-busy001",
+      "volume_type": "gp3",
+      "size_gb": 500,
+      "region": "us-east-1",
+      "monthly_cost_usd": 50.0,
+      "metrics": {
+        "VolumeReadOps": {"average": 800.0},
+        "VolumeWriteOps": {"average": 600.0}
+      }
+    }
+  ],
+  "s3_buckets": [
+    {
+      "bucket_name": "my-data-bucket",
+      "region": "us-east-1",
+      "monthly_cost_usd": 25.0,
+      "has_lifecycle_policy": false,
+      "size_gb": 500.0,
+      "growth_rate_pct": 15.0
+    },
+    {
+      "bucket_name": "logs-bucket-archived",
+      "region": "us-east-1",
+      "monthly_cost_usd": 5.0,
+      "has_lifecycle_policy": true,
+      "size_gb": 200.0,
+      "growth_rate_pct": 2.0
+    }
+  ],
+  "kubernetes_pods": [
+    {
+      "namespace": "production",
+      "pod_name": "api-server-abc123",
+      "container": "api",
+      "cpu_request_millicores": 1000,
+      "cpu_usage_avg_millicores": 150,
+      "memory_request_mib": 512,
+      "memory_usage_avg_mib": 400
+    },
+    {
+      "namespace": "production",
+      "pod_name": "cache-xyz789",
+      "container": "redis",
+      "cpu_request_millicores": 200,
+      "cpu_usage_avg_millicores": 180,
+      "memory_request_mib": 4096,
+      "memory_usage_avg_mib": 800
+    },
+    {
+      "namespace": "staging",
+      "pod_name": "worker-def456",
+      "container": "worker",
+      "cpu_request_millicores": 500,
+      "cpu_usage_avg_millicores": 400,
+      "memory_request_mib": 256,
+      "memory_usage_avg_mib": 200
     }
   ]
 }
