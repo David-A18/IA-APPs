@@ -192,7 +192,7 @@ mypy finops/
 | **Queries** | 2 | Advanced DuckDB queries + unit economics | Done |
 | **Detection** | 3 | Anomaly detection engine + top movers | Done |
 | **Optimization** | 4 | EC2 + K8s rightsizing recommendations | Done |
-| **Automation** | 5 | Reports + Slack alerts + PR generator | Planned |
+| **Automation** | 5 | Reports + Slack alerts + PR generator | Done |
 | **Polish** | 6 | CLI UX + Terraform module + documentation | Planned |
 
 ---

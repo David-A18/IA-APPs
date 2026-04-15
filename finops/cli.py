@@ -354,5 +354,96 @@ def rightsizing(
         console.print(table)
 
 
+@app.command()
+def report(
+    db: Path = typer.Option(_DEFAULT_DB, "--db"),
+    start_date: str = typer.Argument(help="Start date (YYYY-MM-DD)"),
+    end_date: str = typer.Argument(help="End date (YYYY-MM-DD)"),
+    metrics_file: Path = typer.Option(None, "--metrics", help="JSON metrics file for rightsizing"),
+    output_dir: Path = typer.Option(Path("output/reports"), "--output-dir"),
+    format: str = typer.Option("both", "--format", help="json | markdown | both"),
+    account_id: str = typer.Option("", "--account-id"),
+) -> None:
+    """Generate a full FinOps report (anomalies + unit economics + recommendations)."""
+    from finops.ingestion.local_store import LocalStore
+    from finops.analysis.anomaly_detector import detect_anomalies
+    from finops.analysis.unit_economics import compute_unit_economics
+    from finops.analysis.top_movers import compute_top_movers
+    from finops.recommendations.ec2_rightsizer import analyze_ec2_instances
+    from finops.recommendations.storage_optimizer import analyze_ebs_volumes, analyze_s3_buckets
+    from finops.reports.json_reporter import generate_json_report, write_json_report
+    from finops.reports.markdown_reporter import generate_markdown_report, write_markdown_report
+
+    with LocalStore(db) as store:
+        anomalies = detect_anomalies(store, end_date=end_date)
+        ue = compute_unit_economics(store, start_date, end_date)
+        movers = compute_top_movers(store, end_date, end_date)
+        acct = account_id or (store.query("SELECT DISTINCT account_id FROM cur LIMIT 1") or [{}])[0].get("account_id", "unknown")
+
+    ec2_recs, ebs_recs, s3_recs = [], [], []
+    if metrics_file and metrics_file.exists():
+        data = json.loads(metrics_file.read_text(encoding="utf-8"))
+        ec2_recs = analyze_ec2_instances(data.get("ec2_instances", []))
+        ebs_recs = analyze_ebs_volumes(data.get("ebs_volumes", []))
+        s3_recs = analyze_s3_buckets(data.get("s3_buckets", []))
+
+    storage_recs = [*ebs_recs, *s3_recs]
+    total_cost = ue.total_cost
+
+    console.print(f"[bold]Account:[/bold] {acct} | [bold]Period:[/bold] {start_date} → {end_date}")
+    console.print(f"  Anomalies: [red]{len(anomalies)}[/red] | "
+                  f"EC2 recs: [yellow]{len(ec2_recs)}[/yellow] | "
+                  f"Storage recs: [cyan]{len(storage_recs)}[/cyan]")
+
+    if format in ("json", "both"):
+        jr = generate_json_report(acct, start_date, end_date, total_cost, anomalies,
+                                   ec2_recs, [], storage_recs, unit_economics=ue.as_dict(),
+                                   top_movers=movers)
+        out = output_dir / f"finops-report-{start_date}-{end_date}.json"
+        write_json_report(jr, out)
+        console.print(f"  [green]✓[/green] JSON report: {out}")
+
+    if format in ("markdown", "both"):
+        md = generate_markdown_report(acct, start_date, end_date, total_cost, anomalies,
+                                       ec2_recs, [], storage_recs, unit_economics=ue.as_dict())
+        out = output_dir / f"finops-report-{start_date}-{end_date}.md"
+        write_markdown_report(md, out)
+        console.print(f"  [green]✓[/green] Markdown report: {out}")
+
+
+@app.command()
+def alert(
+    db: Path = typer.Option(_DEFAULT_DB, "--db"),
+    config: Path = typer.Option(_DEFAULT_CONFIG, "--config", "-c"),
+    end_date: str = typer.Option("", "--date", "-d"),
+    lookback: int = typer.Option(7, "--lookback", "-l"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Detect anomalies and dispatch alerts to configured channels."""
+    from finops.ingestion.local_store import LocalStore
+    from finops.analysis.anomaly_detector import detect_anomalies
+    from finops.actions.alert_sender import dispatch_alerts
+    from finops.utils.validators import load_yaml
+
+    cfg = load_yaml(config)
+
+    with LocalStore(db) as store:
+        anomalies = detect_anomalies(store, end_date=end_date or None, lookback_days=lookback)
+        acct = cfg.get("aws", {}).get("account_id", "unknown")
+        min_d, max_d = store.date_range()
+
+    console.print(f"[bold]Anomalies detected:[/bold] {len(anomalies)}")
+    if not anomalies:
+        console.print("[green]Nothing to alert.[/green]")
+        return
+
+    period = f"{min_d} → {max_d}"
+    results = dispatch_alerts(anomalies, cfg, acct, period, dry_run=dry_run)
+
+    for channel, success in results.items():
+        status = "[green]✓[/green]" if success else "[red]✗[/red]"
+        console.print(f"  {status} {channel}")
+
+
 if __name__ == "__main__":
     app()
