@@ -189,9 +189,9 @@ mypy finops/
 | Phase | Week | Deliverable | Status |
 |-------|------|-------------|--------|
 | **Foundation** | 1 | Config system + CUR ingestion + DuckDB store | Done |
-| **Queries** | 2 | Advanced DuckDB queries + unit economics | Next |
-| **Detection** | 3 | Anomaly detection engine + top movers | Planned |
-| **Optimization** | 4 | EC2 + K8s rightsizing recommendations | Planned |
+| **Queries** | 2 | Advanced DuckDB queries + unit economics | Done |
+| **Detection** | 3 | Anomaly detection engine + top movers | Done |
+| **Optimization** | 4 | EC2 + K8s rightsizing recommendations | Next |
 | **Automation** | 5 | Reports + Slack alerts + PR generator | Planned |
 | **Polish** | 6 | CLI UX + Terraform module + documentation | Planned |
 
