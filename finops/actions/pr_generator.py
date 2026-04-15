@@ -48,7 +48,7 @@ def build_terraform_changes(
                 "confidence": rec.confidence,
                 "terraform_snippet": (
                     f"# Consider removing {rec.instance_id} ({rec.instance_type}) "
-                    f"— CPU avg {rec.cpu_avg_pct:.1f}%"
+                    f"— CPU avg {f'{rec.cpu_avg_pct:.1f}' if rec.cpu_avg_pct is not None else 'N/A'}%"
                 ),
             })
 

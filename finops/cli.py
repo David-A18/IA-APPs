@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from finops import __version__
 
 app = typer.Typer(
     name="finops",
@@ -15,6 +18,8 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+
+log = logging.getLogger("finops.cli")
 
 _DEFAULT_CONFIG = Path(__file__).parent / "config" / "settings.yaml"
 _DEFAULT_SCHEMA = Path(__file__).parent / "config" / "schemas" / "config_schema.json"
@@ -25,13 +30,7 @@ _DEFAULT_DB = Path("finops.duckdb")
 @app.command()
 def version() -> None:
     """Print version and exit."""
-    from importlib.metadata import version as pkg_version
-
-    try:
-        v = pkg_version("finops-autopilot")
-    except Exception:
-        v = "0.1.0-dev"
-    console.print(f"finops-autopilot [bold green]{v}[/bold green]")
+    console.print(f"finops-autopilot [bold green]{__version__}[/bold green]")
 
 
 @app.command(name="validate-config")
@@ -361,7 +360,7 @@ def report(
     end_date: str = typer.Argument(help="End date (YYYY-MM-DD)"),
     metrics_file: Path = typer.Option(None, "--metrics", help="JSON metrics file for rightsizing"),
     output_dir: Path = typer.Option(Path("output/reports"), "--output-dir"),
-    format: str = typer.Option("both", "--format", help="json | markdown | both"),
+    output_fmt: str = typer.Option("both", "--format", help="json | markdown | both"),
     account_id: str = typer.Option("", "--account-id"),
 ) -> None:
     """Generate a full FinOps report (anomalies + unit economics + recommendations)."""
@@ -375,10 +374,11 @@ def report(
     from finops.reports.markdown_reporter import generate_markdown_report, write_markdown_report
 
     with LocalStore(db) as store:
-        anomalies = detect_anomalies(store, end_date=end_date)
+        anomalies_list = detect_anomalies(store, end_date=end_date)
         ue = compute_unit_economics(store, start_date, end_date)
-        movers = compute_top_movers(store, end_date, end_date)
-        acct = account_id or (store.query("SELECT DISTINCT account_id FROM cur LIMIT 1") or [{}])[0].get("account_id", "unknown")
+        movers = compute_top_movers(store, start_date, end_date)  # fixed: was end_date, end_date
+        acct_rows = store.query("SELECT account_id FROM cur WHERE account_id != '' LIMIT 1")
+        acct = account_id or (acct_rows[0]["account_id"] if acct_rows else "unknown")
 
     ec2_recs, ebs_recs, s3_recs = [], [], []
     if metrics_file and metrics_file.exists():
@@ -391,20 +391,20 @@ def report(
     total_cost = ue.total_cost
 
     console.print(f"[bold]Account:[/bold] {acct} | [bold]Period:[/bold] {start_date} → {end_date}")
-    console.print(f"  Anomalies: [red]{len(anomalies)}[/red] | "
+    console.print(f"  Anomalies: [red]{len(anomalies_list)}[/red] | "
                   f"EC2 recs: [yellow]{len(ec2_recs)}[/yellow] | "
                   f"Storage recs: [cyan]{len(storage_recs)}[/cyan]")
 
-    if format in ("json", "both"):
-        jr = generate_json_report(acct, start_date, end_date, total_cost, anomalies,
+    if output_fmt in ("json", "both"):
+        jr = generate_json_report(acct, start_date, end_date, total_cost, anomalies_list,
                                    ec2_recs, [], storage_recs, unit_economics=ue.as_dict(),
                                    top_movers=movers)
         out = output_dir / f"finops-report-{start_date}-{end_date}.json"
         write_json_report(jr, out)
         console.print(f"  [green]✓[/green] JSON report: {out}")
 
-    if format in ("markdown", "both"):
-        md = generate_markdown_report(acct, start_date, end_date, total_cost, anomalies,
+    if output_fmt in ("markdown", "both"):
+        md = generate_markdown_report(acct, start_date, end_date, total_cost, anomalies_list,
                                        ec2_recs, [], storage_recs, unit_economics=ue.as_dict())
         out = output_dir / f"finops-report-{start_date}-{end_date}.md"
         write_markdown_report(md, out)

@@ -14,8 +14,7 @@ resource "aws_athena_workgroup" "this" {
     enforce_workgroup_configuration    = true
     publish_cloudwatch_metrics_enabled = true
 
-    # Guard rail: kill queries that scan more than 10 GB
-    bytes_scanned_cutoff_per_query = 10737418240
+    bytes_scanned_cutoff_per_query = var.bytes_scanned_cutoff
   }
 
   tags = var.tags

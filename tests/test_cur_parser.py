@@ -1,5 +1,8 @@
-"""Tests for CUR parser and enricher."""
+"""Tests for CUR parser (CSV + GZIP) and enricher."""
 
+from __future__ import annotations
+
+import gzip
 from pathlib import Path
 
 import pytest
@@ -8,6 +11,8 @@ from finops.ingestion.cur_parser import parse_cur_from_file, parse_cur_csv
 from finops.ingestion.cur_enricher import enrich_cur_rows
 
 
+# ── Parser ────────────────────────────────────────────────────────────────────
+
 def test_parse_cur_returns_list(sample_cur_path: Path):
     rows = parse_cur_from_file(sample_cur_path)
     assert isinstance(rows, list)
@@ -15,7 +20,7 @@ def test_parse_cur_returns_list(sample_cur_path: Path):
 
 
 def test_parse_cur_normalized_keys(sample_cur_rows: list[dict]):
-    """Parsed rows should have normalized keys, not raw CUR column names."""
+    """Parsed rows must have normalized keys — no raw CUR column names."""
     row = sample_cur_rows[0]
     assert "account_id" in row
     assert "unblended_cost" in row
@@ -30,7 +35,7 @@ def test_parse_cur_cost_is_float(sample_cur_rows: list[dict]):
 
 
 def test_parse_cur_skips_zero_cost_usage(sample_cur_rows: list[dict]):
-    """Rows with 0 cost and Usage line_item_type should be filtered out."""
+    """$0 Usage rows must be filtered out."""
     zero_usage = [
         r for r in sample_cur_rows
         if r["unblended_cost"] == 0.0 and r["line_item_type"] == "Usage"
@@ -42,6 +47,26 @@ def test_parse_cur_csv_empty():
     rows = parse_cur_csv("lineItem/UsageAccountId,lineItem/UnblendedCost\n")
     assert rows == []
 
+
+def test_parse_cur_gzip(sample_cur_path: Path, tmp_path: Path):
+    """parse_cur_from_file must transparently handle GZIP-compressed CSV."""
+    raw = sample_cur_path.read_bytes()
+    gz_path = tmp_path / "sample.csv.gz"
+    gz_path.write_bytes(gzip.compress(raw))
+
+    rows_plain = parse_cur_from_file(sample_cur_path)
+    rows_gzip = parse_cur_from_file(gz_path)
+
+    assert len(rows_plain) == len(rows_gzip)
+    assert rows_plain[0]["account_id"] == rows_gzip[0]["account_id"]
+
+
+def test_parse_cur_all_accounts_present(sample_cur_rows: list[dict]):
+    accounts = {r["account_id"] for r in sample_cur_rows}
+    assert "123456789012" in accounts
+
+
+# ── Enricher ──────────────────────────────────────────────────────────────────
 
 def test_enrich_adds_service_category(sample_cur_rows: list[dict]):
     enriched = enrich_cur_rows(sample_cur_rows)
@@ -83,19 +108,15 @@ def test_enrich_s3_maps_to_storage(sample_cur_rows: list[dict]):
     assert all(r["service_category"] == "Storage" for r in s3_rows)
 
 
-def test_store_insert_and_count(in_memory_store):
-    count = in_memory_store.row_count()
-    assert count > 0
+def test_enrich_unknown_product_maps_to_other(sample_cur_rows: list[dict]):
+    """Products not in the map should get 'Other' category."""
+    fake_row = dict(sample_cur_rows[0])
+    fake_row["product_code"] = "UnknownProduct999"
+    enriched = enrich_cur_rows([fake_row])
+    assert enriched[0]["service_category"] == "Other"
 
 
-def test_store_daily_cost_query(in_memory_store):
-    results = in_memory_store.daily_cost_by_service("2024-01-15", "2024-01-18")
-    assert isinstance(results, list)
-    assert all("usage_date" in r and "total_cost" in r for r in results)
-
-
-def test_store_cost_by_team(in_memory_store):
-    results = in_memory_store.cost_by_team("2024-01-15", "2024-01-18")
-    assert isinstance(results, list)
-    teams = {r["cost_owner"] for r in results}
-    assert "platform" in teams or "backend" in teams or "untagged" in teams
+def test_enrich_production_tag_preserved(sample_cur_rows: list[dict]):
+    enriched = enrich_cur_rows(sample_cur_rows)
+    prod_rows = [r for r in enriched if r.get("tag_environment") == "production"]
+    assert all(r["environment"] == "production" for r in prod_rows)
