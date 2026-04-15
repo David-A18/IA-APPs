@@ -1,0 +1,18 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real values.
+
+project     = "finops-autopilot"
+environment = "prod"
+aws_region  = "us-east-1"
+
+cur_bucket_name = "my-company-cur-reports"
+cur_s3_prefix   = "cur/reports/"
+report_name     = "finops-cur-daily"
+
+enable_github_oidc = true
+github_repo        = "David-A18/IA-APPs"
+
+tags = {
+  Team        = "platform"
+  CostCenter  = "engineering"
+}
