@@ -1,0 +1,68 @@
+name: FinOps Scheduled Run
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"  # Every Monday 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Lookback window for anomaly detection"
+        default: "7"
+        required: false
+
+permissions:
+  id-token: write   # OIDC — no static AWS keys
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  finops-weekly:
+    name: Weekly FinOps Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e "."
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ingest latest CUR from S3
+        env:
+          CUR_BUCKET: ${{ secrets.CUR_S3_BUCKET }}
+          CUR_KEY: ${{ secrets.CUR_S3_KEY }}
+        run: |
+          finops ingest "s3://$CUR_BUCKET/$CUR_KEY" --db finops.duckdb
+
+      - name: Detect anomalies and alert
+        run: |
+          finops alert --db finops.duckdb \
+            --lookback ${{ github.event.inputs.lookback_days || '7' }}
+
+      - name: Generate weekly report
+        run: |
+          START=$(date -d '7 days ago' '+%Y-%m-%d')
+          END=$(date '+%Y-%m-%d')
+          finops report --db finops.duckdb "$START" "$END" \
+            --output-dir output/reports \
+            --format both
+
+      - name: Upload reports as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: finops-report-${{ github.run_id }}
+          path: output/reports/
+          retention-days: 90

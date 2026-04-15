@@ -27,6 +27,18 @@ variable "report_name" {
   default     = "finops-cur-report"
 }
 
+variable "enable_github_oidc" {
+  description = "Create IAM role for GitHub Actions OIDC authentication"
+  type        = bool
+  default     = false
+}
+
+variable "github_repo" {
+  description = "GitHub repo in 'owner/repo' format (for OIDC trust policy)"
+  type        = string
+  default     = "David-A18/IA-APPs"
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
